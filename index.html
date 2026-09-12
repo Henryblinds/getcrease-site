@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="crease folds your live desktop as you close your MacBook, driven by the real hinge-angle sensor. A macOS app.">
+<meta property="og:title" content="crease — your desktop folds when you do">
+<meta property="og:description" content="A macOS app that folds your live desktop as you close the lid.">
+<title>Crease</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230E1116'/%3E%3Cpath d='M8.2 19.5 L23.8 19.5 L20.8 8.8 L11.2 8.8 Z' fill='%234B5568'/%3E%3Crect x='7.6' y='19' width='16.8' height='9' rx='2' fill='%23C6D0E1'/%3E%3Crect x='7' y='18.3' width='18' height='2.2' rx='1.1' fill='%23F2A93F'/%3E%3C/svg%3E">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    /* light theme (declared first, complete) */
+    --bg: #EFF1F4;
+    --bg-2: #E6E9ED;
+    --surface: #FFFFFF;
+    --text: #141821;
+    --muted: #5B6472;
+    --faint: #838d9c;
+    --accent: #B96A12;
+    --accent-soft: rgba(185,106,18,0.12);
+    --hairline: #DDE1E7;
+    --seam: rgba(185,106,18,0.55);
+    --shadow: 0 24px 60px -28px rgba(20,24,33,0.35);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0E1116;
+      --bg-2: #0A0D12;
+      --surface: #161C24;
+      --text: #E7EBF1;
+      --muted: #8A94A4;
+      --faint: #667081;
+      --accent: #F2A93F;
+      --accent-soft: rgba(242,169,63,0.14);
+      --hairline: #232B36;
+      --seam: rgba(242,169,63,0.7);
+      --shadow: 0 30px 80px -30px rgba(0,0,0,0.75);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1116;
+    --bg-2: #0A0D12;
+    --surface: #161C24;
+    --text: #E7EBF1;
+    --muted: #8A94A4;
+    --faint: #667081;
+    --accent: #F2A93F;
+    --accent-soft: rgba(242,169,63,0.14);
+    --hairline: #232B36;
+    --seam: rgba(242,169,63,0.7);
+    --shadow: 0 30px 80px -30px rgba(0,0,0,0.75);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hanken Grotesk", system-ui, -apple-system, sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding-inline: 24px; }
+
+  a { color: inherit; }
+  h1, h2, h3 { font-family: "Bricolage Grotesque", system-ui, sans-serif; text-wrap: balance; margin: 0; }
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+  .eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600;
+  }
+
+  /* ---- header ---- */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-block: 22px; gap: 16px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .logo { display: inline-flex; line-height: 0; }
+  .brand .logo svg { display: block; border-radius: 7px; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+  .brand .name {
+    font-family: "Bricolage Grotesque", sans-serif; font-weight: 800;
+    font-size: 24px; letter-spacing: -0.02em;
+  }
+  .brand .os {
+    font-family: "JetBrains Mono", monospace; font-size: 11px;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint);
+    border: 1px solid var(--hairline); border-radius: 999px; padding: 3px 9px;
+  }
+  .nav { display: flex; align-items: center; gap: 18px; }
+  .nav a { text-decoration: none; color: var(--muted); font-size: 14px; font-weight: 500; }
+  .nav a:hover { color: var(--text); }
+  .ghost-btn {
+    border: 1px solid var(--hairline); border-radius: 999px;
+    padding: 8px 15px; font-size: 14px; font-weight: 600; color: var(--text);
+    text-decoration: none; transition: border-color .2s, background .2s;
+  }
+  .ghost-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+  /* ---- hero ---- */
+  .hero { padding-block: 40px 8px; display: grid; gap: 30px; }
+  .hero-copy { display: grid; gap: 18px; max-width: 640px; }
+  h1 {
+    font-size: clamp(40px, 7vw, 74px); font-weight: 800; line-height: 0.98;
+    letter-spacing: -0.035em;
+  }
+  h1 .fold-word {
+    background: linear-gradient(100deg, var(--accent), color-mix(in oklab, var(--accent) 55%, var(--text)));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .lede { font-size: clamp(17px, 2.3vw, 20px); color: var(--muted); max-width: 54ch; }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-top: 4px; }
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 9px;
+    background: var(--accent); color: #150d02; text-decoration: none;
+    font-weight: 700; font-size: 15px; padding: 12px 20px; border-radius: 12px;
+    transition: transform .15s ease, filter .2s;
+  }
+  .btn-primary:hover { transform: translateY(-1px); filter: brightness(1.06); }
+  .cta-note { font-size: 13.5px; color: var(--faint); font-family: "JetBrains Mono", monospace; }
+
+  /* ---- fold stage ---- */
+  .stage-block { display: grid; gap: 18px; }
+  .stage {
+    position: relative;
+    perspective: 1500px;
+    perspective-origin: 50% 32%;
+    padding: 8px;
+  }
+  .screen {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    transform-origin: 50% 100%;
+    transform: rotateX(calc(var(--fold, 0.34) * 66deg));
+    transition: transform .08s linear;
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    will-change: transform;
+  }
+  .desktop {
+    position: absolute; inset: 0;
+    border-radius: 14px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.06);
+    background:
+      radial-gradient(120% 90% at 78% 8%, #3b4a6b 0%, #222c44 42%, #141a2b 100%);
+  }
+  .desktop.blur {
+    filter: blur(calc(var(--fold, 0.34) * 9px));
+    opacity: var(--fold, 0.34);
+    -webkit-mask-image: linear-gradient(to top, transparent 34%, #000 82%);
+    mask-image: linear-gradient(to top, transparent 34%, #000 82%);
+    pointer-events: none;
+  }
+  .shade {
+    position: absolute; inset: 0; border-radius: 14px; pointer-events: none;
+    background: linear-gradient(to top, rgba(6,8,14,0) 30%, rgba(6,8,14,0.62) 100%);
+    opacity: var(--fold, 0.34);
+  }
+  /* crease light along the hinge */
+  .stage::after {
+    content: ""; position: absolute; left: 8px; right: 8px; bottom: 6px; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--seam), transparent);
+    filter: blur(0.4px); opacity: calc(0.25 + var(--fold, 0.34) * 0.75);
+  }
+
+  /* mock desktop internals */
+  .menubar {
+    position: absolute; top: 0; left: 0; right: 0; height: 6.5%;
+    display: flex; align-items: center; gap: 14px; padding: 0 3.4%;
+    background: rgba(12,16,26,0.5); backdrop-filter: blur(6px);
+    color: #dfe5f2; font-family: "Hanken Grotesk", sans-serif; font-size: 11px;
+  }
+  .menubar .logo { width: 11px; height: 11px; border-radius: 3px; background: #dfe5f2; opacity: .92; }
+  .menubar .mi { font-weight: 600; opacity: .82; }
+  .menubar .mi.dim { opacity: .5; font-weight: 500; }
+  .menubar .spacer { flex: 1; }
+  .menubar .clock { font-family: "JetBrains Mono", monospace; opacity: .8; }
+
+  .win {
+    position: absolute; border-radius: 9px; overflow: hidden;
+    background: rgba(24,29,40,0.86); backdrop-filter: blur(3px);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 18px 40px -18px rgba(0,0,0,0.6);
+  }
+  .win .bar { height: 20px; display: flex; align-items: center; gap: 5px; padding: 0 9px;
+    background: rgba(255,255,255,0.05); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot.r { background: #ff5f57; } .dot.y { background: #febc2e; } .dot.g { background: #28c840; }
+  .win .body { padding: 11px; display: grid; gap: 7px; }
+  .line { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.13); }
+  .line.short { width: 45%; }
+  .line.mid { width: 70%; }
+  .line.accent { background: var(--seam); width: 30%; }
+
+  .win.a { left: 6%; top: 18%; width: 46%; }
+  .win.b { right: 7%; top: 34%; width: 40%; }
+  .win.b .body { gap: 6px; }
+  .swatches { display: flex; gap: 6px; margin-top: 2px; }
+  .sw { width: 22px; height: 22px; border-radius: 6px; }
+
+  .dock {
+    position: absolute; left: 50%; bottom: 3.5%; transform: translateX(-50%);
+    display: flex; gap: 6px; padding: 5px 8px; border-radius: 12px;
+    background: rgba(255,255,255,0.1); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .dock i { width: 20px; height: 20px; border-radius: 6px; display: block; }
+
+  /* control panel under stage */
+  .controls {
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: 14px; padding: 16px 20px;
+  }
+  .readout { display: flex; align-items: baseline; gap: 8px; min-width: 128px; }
+  .readout .deg {
+    font-family: "JetBrains Mono", monospace; font-weight: 600;
+    font-size: 30px; color: var(--text); font-variant-numeric: tabular-nums;
+  }
+  .readout .lbl { font-family: "JetBrains Mono", monospace; font-size: 11px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+  .slider-wrap { flex: 1; min-width: 200px; display: grid; gap: 6px; }
+  .slider-ends { display: flex; justify-content: space-between;
+    font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--faint);
+    letter-spacing: .06em; }
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 6px;
+    border-radius: 999px; background: var(--hairline); outline: none; cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--accent); border: 3px solid var(--surface);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 20px; height: 20px; border-radius: 50%; background: var(--accent);
+    border: 3px solid var(--surface); box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  input[type="range"]:focus-visible { box-shadow: 0 0 0 3px var(--accent-soft); }
+  .hint { font-size: 13px; color: var(--faint); }
+
+  /* ---- seam divider ---- */
+  .seam-rule {
+    height: 1px; margin: 64px 0 56px;
+    background: linear-gradient(90deg, transparent, var(--hairline) 12%, var(--hairline) 88%, transparent);
+    position: relative;
+  }
+  .seam-rule::before {
+    content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    width: 120px; height: 2px; background: linear-gradient(90deg, transparent, var(--seam), transparent);
+    filter: blur(0.5px);
+  }
+
+  /* ---- how it works ---- */
+  section { padding-block: 8px; }
+  .sec-head { display: grid; gap: 10px; margin-bottom: 30px; max-width: 620px; }
+  .sec-head h2 { font-size: clamp(26px, 4vw, 38px); font-weight: 700; letter-spacing: -0.02em; }
+  .sec-head p { color: var(--muted); margin: 0; }
+
+  .steps { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px;
+    background: var(--hairline); border: 1px solid var(--hairline); border-radius: 16px; overflow: hidden; }
+  .step { background: var(--bg); padding: 24px; display: grid; gap: 10px; align-content: start; }
+  .step .n { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--accent);
+    font-weight: 600; letter-spacing: .1em; }
+  .step h3 { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; }
+  .step p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  /* ---- specs strip ---- */
+  .specs { margin-top: 44px; display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 1px; background: var(--hairline); border: 1px solid var(--hairline);
+    border-radius: 16px; overflow: hidden; }
+  .spec { background: var(--surface); padding: 20px; display: grid; gap: 6px; }
+  .spec .k { font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--faint); }
+  .spec .v { font-weight: 600; font-size: 15px; }
+
+  /* ---- privacy ---- */
+  .privacy { margin-top: 56px; background: var(--accent-soft);
+    border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--hairline));
+    border-radius: 16px; padding: 30px 28px; display: grid; gap: 12px; }
+  .privacy h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+  .privacy p { margin: 0; color: var(--muted); max-width: 60ch; }
+  .privacy .pill-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+  .pill { font-family: "JetBrains Mono", monospace; font-size: 12px; padding: 5px 12px;
+    border-radius: 999px; border: 1px solid var(--hairline); background: var(--surface); color: var(--text); }
+
+  /* ---- get / buy ---- */
+  .get { margin-top: 64px; }
+  .get-inner {
+    background: var(--surface); border: 1px solid var(--hairline); border-radius: 20px;
+    padding: 34px 32px; display: flex; align-items: center; justify-content: space-between;
+    gap: 32px; flex-wrap: wrap;
+    box-shadow: var(--shadow);
+  }
+  .get-copy { display: grid; gap: 10px; max-width: 46ch; }
+  .get-copy h2 { font-size: clamp(24px, 3.4vw, 32px); font-weight: 700; letter-spacing: -0.02em; }
+  .get-copy p { margin: 0; color: var(--muted); font-size: 15px; }
+  .get-buy { display: grid; gap: 12px; justify-items: start; }
+  .price { display: flex; align-items: baseline; gap: 8px; }
+  .price .amt { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800;
+    font-size: 44px; letter-spacing: -0.03em; }
+  .price .per { font-family: "JetBrains Mono", monospace; font-size: 12px;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+  .btn-primary.buy { font-size: 16px; padding: 13px 26px; }
+
+  /* ---- footer ---- */
+  footer { margin-top: 72px; padding-block: 34px 48px; border-top: 1px solid var(--hairline);
+    display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+  footer .brand .name { font-size: 18px; }
+  footer .fnote { color: var(--faint); font-size: 13px; }
+  footer a.repo { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; }
+  footer a.repo:hover { color: var(--accent); }
+
+  @media (max-width: 720px) {
+    .steps, .specs { grid-template-columns: 1fr; }
+    .nav .hide-sm { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .screen { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="26" height="26">
+          <rect width="32" height="32" rx="7" fill="#12161d"/>
+          <path d="M8.2 19.5 L23.8 19.5 L20.8 8.8 L11.2 8.8 Z" fill="#4B5568"/>
+          <rect x="7.6" y="19" width="16.8" height="9" rx="2" fill="#C6D0E1"/>
+          <rect x="7" y="18.3" width="18" height="2.4" rx="1.2" fill="#F2A93F"/>
+        </svg>
+      </span>
+      <span class="name">crease</span>
+      <span class="os">for macOS</span>
+    </div>
+    <nav class="nav">
+      <a class="hide-sm" href="#how">How it works</a>
+      <a class="hide-sm" href="#specs">Requirements</a>
+      <a class="ghost-btn" href="#get">Get crease</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <div class="hero-copy">
+      <span class="eyebrow">Driven by the hinge sensor</span>
+      <h1>Your desktop <span class="fold-word">folds</span> when you do.</h1>
+      <p class="lede">
+        crease reads the real lid-angle sensor in your MacBook and folds your live
+        desktop back as you close it — wallpaper, windows, menu bar and all. Drag below
+        to close the lid.
+      </p>
+      <div class="cta-row">
+        <a class="btn-primary" href="#get">Get crease →</a>
+        <span class="cta-note">One-time purchase · Apple silicon · macOS 14+</span>
+      </div>
+    </div>
+
+    <div class="stage-block">
+      <div class="stage" id="stage">
+        <div class="screen" id="screen">
+          <div class="desktop" id="desktop">
+            <div class="menubar">
+              <span class="logo"></span>
+              <span class="mi">crease</span>
+              <span class="mi dim">File</span>
+              <span class="mi dim">View</span>
+              <span class="spacer"></span>
+              <span class="clock">Sat 12:48</span>
+            </div>
+            <div class="win a">
+              <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+              <div class="body">
+                <div class="line mid"></div>
+                <div class="line"></div>
+                <div class="line short"></div>
+                <div class="line accent"></div>
+              </div>
+            </div>
+            <div class="win b">
+              <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+              <div class="body">
+                <div class="line short"></div>
+                <div class="line"></div>
+                <div class="swatches">
+                  <span class="sw" style="background:#f2a93f"></span>
+                  <span class="sw" style="background:#4a7cf2"></span>
+                  <span class="sw" style="background:#39c26a"></span>
+                  <span class="sw" style="background:#e5567b"></span>
+                </div>
+              </div>
+            </div>
+            <div class="dock">
+              <i style="background:linear-gradient(#5b8def,#3a63c0)"></i>
+              <i style="background:linear-gradient(#f2a93f,#d3841a)"></i>
+              <i style="background:linear-gradient(#39c26a,#248f4c)"></i>
+              <i style="background:linear-gradient(#e5567b,#b83a5c)"></i>
+              <i style="background:linear-gradient(#9b8cff,#6c5ce7)"></i>
+              <i style="background:linear-gradient(#e9edf5,#c3cad6)"></i>
+            </div>
+          </div>
+          <div class="shade"></div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="readout">
+          <span class="deg mono" id="deg">128°</span>
+          <span class="lbl">lid angle</span>
+        </div>
+        <div class="slider-wrap">
+          <input id="lid" type="range" min="0" max="1000" value="340" aria-label="Lid angle — drag to fold the desktop">
+          <div class="slider-ends"><span>open · flat</span><span>closing · folded</span></div>
+        </div>
+      </div>
+      <p class="hint">In the app this dial is your actual hinge — no slider, just the lid.</p>
+    </div>
+  </div>
+
+  <div class="seam-rule"></div>
+
+  <section id="how">
+    <div class="sec-head">
+      <span class="eyebrow">How it works</span>
+      <h2>A real sensor, a live desktop, one Metal fold.</h2>
+      <p>Four small parts, each doing one thing. Everything runs on your Mac.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <span class="n">01 · Sensor</span>
+        <h3>Reads the hinge</h3>
+        <p>Pulls the physical lid angle straight from the MacBook's built-in
+           lid-angle sensor — no accessibility tricks.</p>
+      </div>
+      <div class="step">
+        <span class="n">02 · Capture</span>
+        <h3>Live desktop</h3>
+        <p>Captures the screen with ScreenCaptureKit into a Metal texture, so
+           windows and wallpaper move together in real time.</p>
+      </div>
+      <div class="step">
+        <span class="n">03 · Fold</span>
+        <h3>Folds in Metal</h3>
+        <p>Hinges the whole desktop at its bottom edge and folds it back, with a
+           depth-of-field blur that deepens toward the top.</p>
+      </div>
+      <div class="step">
+        <span class="n">04 · Menu bar</span>
+        <h3>Stays out of the way</h3>
+        <p>Lives quietly in the menu bar. Pause, resume, or recalibrate flat to
+           wherever your lid sits right now.</p>
+      </div>
+    </div>
+
+    <div class="specs" id="specs">
+      <div class="spec"><span class="k">macOS</span><span class="v">14 Sonoma or later</span></div>
+      <div class="spec"><span class="k">Chip</span><span class="v">Apple silicon</span></div>
+      <div class="spec"><span class="k">Hardware</span><span class="v">Lid-angle sensor</span></div>
+      <div class="spec"><span class="k">Permission</span><span class="v">Screen Recording</span></div>
+    </div>
+  </section>
+
+  <div class="privacy">
+    <span class="eyebrow">Private by design</span>
+    <h2>Nothing leaves your Mac.</h2>
+    <p>Every frame is captured, folded, and drawn on-device. crease has no account,
+       no network, and records nothing — the desktop it shows never goes anywhere.</p>
+    <div class="pill-row">
+      <span class="pill">on-device</span>
+      <span class="pill">no account</span>
+      <span class="pill">no telemetry</span>
+      <span class="pill">nothing recorded</span>
+    </div>
+  </div>
+
+  <section id="get" class="get">
+    <div class="get-inner">
+      <div class="get-copy">
+        <span class="eyebrow">Get crease</span>
+        <h2>One purchase. Up to three Macs.</h2>
+        <p>No subscription, no account. Pay once, download the app, and your license
+           key works on all your Macs.</p>
+      </div>
+      <div class="get-buy">
+        <div class="price"><span class="amt">$4.99</span><span class="per">one-time</span></div>
+        <a class="btn-primary buy" href="#" data-store-link>Buy crease</a>
+        <span class="cta-note">Direct download · notarized by Apple</span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="brand">
+      <span class="name">crease</span>
+      <span class="fnote">— the desktop that folds with your lid.</span>
+    </div>
+    <span class="repo">© 2026 crease</span>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var screenEl = document.getElementById('screen');
+    var desktop = document.getElementById('desktop');
+    var slider = document.getElementById('lid');
+    var degEl = document.getElementById('deg');
+
+    // Duplicate the desktop as a top-weighted blurred layer.
+    var blur = desktop.cloneNode(true);
+    blur.classList.add('blur');
+    blur.id = '';
+    blur.setAttribute('aria-hidden', 'true');
+    screenEl.insertBefore(blur, screenEl.querySelector('.shade'));
+
+    // Map fold amount (0..1) to a lid angle: 128° open/flat → 26° folded.
+    var LID_OPEN = 128, LID_CLOSED = 26;
+
+    function apply(fold) {
+      root.style.setProperty('--fold', fold.toFixed(3));
+      var deg = Math.round(LID_OPEN - fold * (LID_OPEN - LID_CLOSED));
+      degEl.textContent = deg + '°';
+    }
+
+    apply(slider.value / 1000);
+
+    var userTouched = false;
+    slider.addEventListener('input', function () {
+      userTouched = true;
+      apply(slider.value / 1000);
+    });
+
+    // Gentle ambient breathing until the visitor takes over.
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduce) {
+      var t = 0;
+      (function breathe() {
+        if (!userTouched) {
+          t += 0.012;
+          // ease between ~0.14 and ~0.62
+          var fold = 0.38 + Math.sin(t) * 0.24;
+          slider.value = Math.round(fold * 1000);
+          apply(fold);
+        }
+        requestAnimationFrame(breathe);
+      })();
+    }
+  })();
+</script>
+
+</body>
+</html>
