@@ -327,6 +327,11 @@
   .price .per { font-family: "JetBrains Mono", monospace; font-size: 12px;
     letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
   .btn-primary.buy { font-size: 16px; padding: 13px 26px; }
+  .btn-primary.disabled {
+    background: var(--hairline); color: var(--faint);
+    cursor: default; pointer-events: none; box-shadow: none;
+  }
+  .btn-primary.disabled:hover { transform: none; filter: none; }
 
   /* ---- footer ---- */
   footer { margin-top: 72px; padding-block: 34px 48px; border-top: 1px solid var(--hairline);
@@ -512,8 +517,10 @@
       </div>
       <div class="get-buy">
         <div class="price"><span class="amt">$4.99</span><span class="per">one-time</span></div>
-        <a class="btn-primary buy" href="https://getcrease.lemonsqueezy.com/checkout/buy/71854bfb-a894-463b-8d08-b3da1e4758bc">Buy crease</a>
-        <span class="cta-note">Direct download · notarized by Apple</span>
+        <!-- To re-enable when approved, restore this button:
+        <a class="btn-primary buy" href="https://getcrease.lemonsqueezy.com/checkout/buy/71854bfb-a894-463b-8d08-b3da1e4758bc">Buy crease</a> -->
+        <span class="btn-primary buy disabled" aria-disabled="true">Coming soon</span>
+        <span class="cta-note">Launching shortly · notarized, direct download</span>
       </div>
     </div>
   </section>
